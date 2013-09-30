@@ -1,98 +1,163 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Text;
-using System.Collections;
 
 namespace Ultima
 {
-	public class StringList
+	public sealed class StringList
 	{
-		private Hashtable m_Table;
-		private StringEntry[] m_Entries;
-		private string m_Language;
+		private int m_Header1;
+		private short m_Header2;
 
-		private Hashtable m_EntTable;
-
-		public StringEntry[] Entries{ get{ return m_Entries; } }
-		public Hashtable Table{ get{ return m_Table; } }
-		public string Language{ get{ return m_Language; } }
+		public List<StringEntry> Entries { get; set; }
+		public string Language { get; private set; }
 
 		private static byte[] m_Buffer = new byte[1024];
 
-		public string Format( int num, params object[] args )
+		/// <summary>
+		/// Initialize <see cref="StringList"/> of Language
+		/// </summary>
+		/// <param name="language"></param>
+		public StringList(string language)
 		{
-            StringEntry ent = m_EntTable[num] as StringEntry;
-			
-            if ( ent != null )
-                return ent.Format( args );
-            else
-			    return String.Format( "CliLoc string {0}/{1} not found!", num, m_EntTable.Count );
+			Language = language;
+			LoadEntry(Files.GetFilePath(String.Format("cliloc.{0}", language)));
+		}
+		/// <summary>
+		/// Initialize <see cref="StringList"/> of Language from path
+		/// </summary>
+		/// <param name="language"></param>
+		/// <param name="path"></param>
+		public StringList(string language, string path)
+		{
+			Language = language;
+			LoadEntry(path);
 		}
 
-		public string SplitFormat( int num, string argstr )
+		private void LoadEntry(string path)
 		{
-			StringEntry ent = m_EntTable[num] as StringEntry;
-
-			if (ent != null)
-				return ent.SplitFormat(argstr);
-			else
-				return String.Format("CliLoc string {0}/{1} not found!", num, m_EntTable.Count);
-		}
-
-		public StringList( string language )
-		{
-			m_Language = language;
-			m_Table = new Hashtable();
-			m_EntTable = new Hashtable();
-
-			string path = Client.GetFilePath( String.Format( "cliloc.{0}", language ) );
-
-			if ( path == null || !File.Exists( path ) )
+			if (path == null)
 			{
-				m_Entries = new StringEntry[0];
+				Entries = new List<StringEntry>(0);
 				return;
 			}
+			Entries = new List<StringEntry>();
 
-			ArrayList list = new ArrayList();
-
-			using ( BinaryReader bin = new BinaryReader( new FileStream( path, FileMode.Open, FileAccess.Read, FileShare.Read ) ) )
+			using (BinaryReader bin = new BinaryReader(new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read)))
 			{
-				bin.ReadInt32();
-				bin.ReadInt16();
+				m_Header1 = bin.ReadInt32();
+				m_Header2 = bin.ReadInt16();
 
-				try
+				while (bin.BaseStream.Length != bin.BaseStream.Position)
 				{
-					while ( bin.BaseStream.Length != bin.BaseStream.Position )
-					{
-						int number = bin.ReadInt32();
-						bin.ReadByte();
-						int length = bin.ReadInt16();
+					int number = bin.ReadInt32();
+					byte flag = bin.ReadByte();
+					int length = bin.ReadInt16();
 
-						if ( length > m_Buffer.Length )
-							m_Buffer = new byte[(length + 1023) & ~1023];
+					if (length > m_Buffer.Length)
+						m_Buffer = new byte[(length + 1023) & ~1023];
 
-						bin.Read( m_Buffer, 0, length );
+					bin.Read(m_Buffer, 0, length);
+					string text = Encoding.UTF8.GetString(m_Buffer, 0, length);
 
-						try
-						{
-							string text = Encoding.UTF8.GetString( m_Buffer, 0, length );
-
-							StringEntry ent = new StringEntry( number, text );
-							list.Add( ent );
-							m_EntTable[number] = ent;
-							m_Table[number] = text;
-						}
-						catch
-						{
-						}
-					}
-				}
-				catch ( System.IO.EndOfStreamException )
-				{
+					Entries.Add(new StringEntry(number, text, flag));
 				}
 			}
-
-			m_Entries = (StringEntry[])list.ToArray( typeof( StringEntry ) );
 		}
+
+		/// <summary>
+		/// Saves <see cref="SaveStringList"/> to FileName
+		/// </summary>
+		/// <param name="FileName"></param>
+		public void SaveStringList(string FileName)
+		{
+			using (FileStream fs = new FileStream(FileName, FileMode.Create, FileAccess.Write, FileShare.Write))
+			{
+				using (BinaryWriter bin = new BinaryWriter(fs))
+				{
+					bin.Write(m_Header1);
+					bin.Write(m_Header2);
+					Entries.Sort(new StringList.NumberComparer(false));
+					foreach (StringEntry entry in Entries)
+					{
+						bin.Write(entry.Number);
+						bin.Write((byte)entry.Flag);
+						byte[] utf8String = Encoding.UTF8.GetBytes(entry.Text);
+						ushort length = (ushort)utf8String.Length;
+						bin.Write(length);
+						bin.Write(utf8String);
+					}
+				}
+			}
+		}
+
+		#region SortComparer
+
+		public class NumberComparer : IComparer<StringEntry>
+		{
+			private bool m_desc;
+
+			public NumberComparer(bool desc)
+			{
+				m_desc = desc;
+			}
+
+			public int Compare(StringEntry objA, StringEntry objB)
+			{
+				if (objA.Number == objB.Number)
+					return 0;
+				else if (m_desc)
+					return (objA.Number < objB.Number) ? 1 : -1;
+				else
+					return (objA.Number < objB.Number) ? -1 : 1;
+			}
+		}
+
+		public class FlagComparer : IComparer<StringEntry>
+		{
+			private bool m_desc;
+
+			public FlagComparer(bool desc)
+			{
+				m_desc = desc;
+			}
+
+			public int Compare(StringEntry objA, StringEntry objB)
+			{
+				if ((byte)objA.Flag == (byte)objB.Flag)
+				{
+					if (objA.Number == objB.Number)
+						return 0;
+					else if (m_desc)
+						return (objA.Number < objB.Number) ? 1 : -1;
+					else
+						return (objA.Number < objB.Number) ? -1 : 1;
+				}
+				else if (m_desc)
+					return ((byte)objA.Flag < (byte)objB.Flag) ? 1 : -1;
+				else
+					return ((byte)objA.Flag < (byte)objB.Flag) ? -1 : 1;
+			}
+		}
+
+		public class TextComparer : IComparer<StringEntry>
+		{
+			private bool m_desc;
+
+			public TextComparer(bool desc)
+			{
+				m_desc = desc;
+			}
+
+			public int Compare(StringEntry objA, StringEntry objB)
+			{
+				if (m_desc)
+					return String.Compare(objB.Text, objA.Text);
+				else
+					return String.Compare(objA.Text, objB.Text);
+			}
+		}
+		#endregion
 	}
 }

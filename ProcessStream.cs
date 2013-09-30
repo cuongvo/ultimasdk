@@ -1,13 +1,12 @@
 using System;
 using System.IO;
-using System.Runtime.InteropServices;
-using Microsoft.Win32.SafeHandles;
 
 namespace Ultima
 {
 	public unsafe abstract class ProcessStream : Stream
 	{
 		private const int ProcessAllAccess = 0x1F0FFF;
+
 		protected bool m_Open;
 		protected ClientProcessHandle m_Process;
 
@@ -21,10 +20,10 @@ namespace Ultima
 
 		public virtual bool BeginAccess()
 		{
-			if ( m_Open )
+			if (m_Open)
 				return false;
 
-			m_Process = NativeMethods.OpenProcess( ProcessAllAccess, 0, ProcessID );
+			m_Process = NativeMethods.OpenProcess(ProcessAllAccess, 0, ProcessID);
 			m_Open = true;
 
 			return true;
@@ -32,9 +31,9 @@ namespace Ultima
 
 		public virtual void EndAccess()
 		{
-			if ( !m_Open )
+			if (!m_Open)
 				return;
-						
+
 			m_Process.Close();
 			m_Open = false;
 		}
@@ -43,51 +42,51 @@ namespace Ultima
 		{
 		}
 
-		public override int Read( byte[] buffer, int offset, int count )
+		public override int Read(byte[] buffer, int offset, int count)
 		{
 			bool end = !BeginAccess();
 
 			int res = 0;
 
-			fixed ( byte *p = buffer )
-                NativeMethods.ReadProcessMemory(m_Process, m_Position, p + offset, count, ref res);
+			fixed (byte* p = buffer)
+				NativeMethods.ReadProcessMemory(m_Process, m_Position, p + offset, count, ref res);
 
 			m_Position += count;
 
-			if ( end )
+			if (end)
 				EndAccess();
 
 			return res;
 		}
 
-		public override void Write( byte[] buffer, int offset, int count )
+		public override void Write(byte[] buffer, int offset, int count)
 		{
 			bool end = !BeginAccess();
 
-			fixed ( byte *p = buffer )
-                NativeMethods.WriteProcessMemory(m_Process, m_Position, p + offset, count, 0);
+			fixed (byte* p = buffer)
+				NativeMethods.WriteProcessMemory(m_Process, m_Position, p + offset, count, 0);
 
 			m_Position += count;
 
-			if ( end )
+			if (end)
 				EndAccess();
 		}
 
-		public override bool CanRead{ get{ return true; } }
-		public override bool CanWrite{ get{ return true; } }
-		public override bool CanSeek{ get{ return true; } }
+		public override bool CanRead { get { return true; } }
+		public override bool CanWrite { get { return true; } }
+		public override bool CanSeek { get { return true; } }
 
-		public override long Length{ get{ throw new NotSupportedException(); } }
-		public override long Position{ get{ return m_Position; } set{ m_Position = (int)value; } }
+		public override long Length { get { throw new NotSupportedException(); } }
+		public override long Position { get { return m_Position; } set { m_Position = (int)value; } }
 
 		public override void SetLength(long value)
 		{
 			throw new NotSupportedException();
 		}
 
-		public override long Seek( long offset, SeekOrigin origin )
+		public override long Seek(long offset, SeekOrigin origin)
 		{
-			switch ( origin )
+			switch (origin)
 			{
 				case SeekOrigin.Begin: m_Position = (int)offset; break;
 				case SeekOrigin.Current: m_Position += (int)offset; break;
