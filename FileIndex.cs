@@ -132,16 +132,17 @@ namespace Ultima
 			return true;
 		}
 
-		public FileIndex(string idxFile, string mulFile, int length, int file) : this(idxFile, mulFile, length, file, ".dat", -1, false)
+		public FileIndex(string idxFile, string mulFile, int length, int file) : this(idxFile, mulFile, null, length, file, ".dat", -1, false)
 		{
 		}
 
-		public FileIndex(string idxFile, string mulFile, int length, int file, string uopEntryExtension, int idxLength, bool hasExtra)
+		public FileIndex(string idxFile, string mulFile, string uopFile, int length, int file, string uopEntryExtension, int idxLength, bool hasExtra)
 		{
 			Index = new Entry3D[length];
 
 			string idxPath = null;
 			MulPath = null;
+			string uopPath = null;
 
 			if (Files.MulPath == null)
 				Files.LoadMulPath();
@@ -150,6 +151,9 @@ namespace Ultima
 			{
 				idxPath = Files.MulPath[idxFile.ToLower()];
 				MulPath = Files.MulPath[mulFile.ToLower()];
+
+				if (!String.IsNullOrEmpty(uopFile) && Files.MulPath.ContainsKey(uopFile.ToLower()))
+					uopPath = Files.MulPath[uopFile.ToLower()];
 
 				if (String.IsNullOrEmpty(idxPath))
 				{
@@ -175,6 +179,21 @@ namespace Ultima
 
 					if (!File.Exists(MulPath))
 						MulPath = null;
+				}
+
+				if (String.IsNullOrEmpty(uopPath))
+				{
+					uopPath = null;
+				}
+				else
+				{
+					if (String.IsNullOrEmpty(Path.GetDirectoryName(uopPath)))
+						uopPath = Path.Combine(Files.RootDir, uopPath);
+
+					if (!File.Exists(uopPath))
+						uopPath = null;
+					else
+						MulPath = uopPath;
 				}
 			}
 

@@ -59,12 +59,18 @@ namespace Ultima
 			{
 				mapPath = Files.GetFilePath("map{0}.mul", fileIndex);
 
+				if (String.IsNullOrEmpty(mapPath) || !File.Exists(mapPath))
+					mapPath = Files.GetFilePath("map{0}LegacyMUL.uop", fileIndex);
+
 				if (mapPath != null && mapPath.EndsWith(".uop"))
 					IsUOPFormat = true;
 			}
 			else
 			{
 				mapPath = Path.Combine(path, String.Format("map{0}.mul", fileIndex));
+
+				if (!File.Exists(mapPath))
+					mapPath = Path.Combine(path, String.Format("map{0}LegacyMUL.uop", fileIndex));
 
 				if (!File.Exists(mapPath))
 					mapPath = null;
