@@ -30,6 +30,12 @@
     <WarningLevel>4</WarningLevel>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
+  <PropertyGroup>
+    <SignAssembly>true</SignAssembly>
+  </PropertyGroup>
+  <PropertyGroup>
+    <AssemblyOriginatorKeyFile>UltimaSDK.snk</AssemblyOriginatorKeyFile>
+  </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
     <Reference Include="System.Data" />
@@ -64,6 +70,9 @@
     <Compile Include="Ultima\TileMatrixPatch.cs" />
     <Compile Include="Ultima\Verdata.cs" />
     <Compile Include="Ultima\WindowProcessStream.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="UltimaSDK.snk" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
